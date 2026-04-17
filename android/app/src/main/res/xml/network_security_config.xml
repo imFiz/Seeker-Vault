@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <!--
+        Allow cleartext (ws://) traffic to localhost and 127.0.0.1.
+        This is REQUIRED for Solana Mobile Wallet Adapter:
+        The wallet app (Seed Vault) opens a WebSocket server on ws://localhost:PORT
+        and the dApp must connect to it to complete the MWA authorization flow.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

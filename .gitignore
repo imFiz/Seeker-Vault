@@ -1,0 +1,22 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+*.apk
+*.keystore
+*.jks
+android/app/build/
+android/keystore.properties
+
+# IDE
+.vscode/
+.claude/
+.idea/
+
+# OS
+Thumbs.db
+*.bak

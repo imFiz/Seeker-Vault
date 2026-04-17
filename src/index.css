@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #F5F5F0;
+  --color-graphite: #1A1A1A;
+  --color-graphite-light: #2D2D2D;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-graphite font-sans antialiased;
+  }
+}
+
+.glass-panel {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+.scan-line {
+  animation: scan 2s linear infinite;
+  background: linear-gradient(to bottom, transparent, theme('colors.cream'), transparent);
+}
+
+.btn-primary {
+  @apply bg-graphite text-cream px-6 py-3 rounded-full font-medium transition-all hover:scale-105 active:scale-95 disabled:opacity-50;
+}
+
+.dark .btn-primary {
+  @apply bg-cream text-graphite hover:bg-white;
+}
+
+.btn-secondary {
+  @apply border border-graphite text-graphite px-6 py-3 rounded-full font-medium transition-all hover:bg-graphite hover:text-cream active:scale-95;
+}
+
+.dark .btn-secondary {
+  @apply border-cream text-cream hover:bg-cream hover:text-graphite;
+}
+
+/* Solana Wallet Adapter Overrides */
+.wallet-adapter-button {
+  @apply !font-sans !font-bold !uppercase !tracking-widest !text-[10px] !h-14 !rounded-2xl !transition-all !duration-300 !flex !items-center !justify-center !gap-3 !px-8 !w-full !border-none !shadow-none !bg-cream !text-graphite hover:!bg-white active:!scale-95 !m-0 !cursor-pointer !select-none;
+}
+
+.wallet-adapter-button:not([disabled]):hover {
+  @apply !bg-white;
+}
+
+.wallet-adapter-button-trigger {
+  @apply !bg-cream !text-graphite;
+}
+
+.wallet-adapter-modal-wrapper {
+  @apply !bg-cream !rounded-3xl !border !border-graphite/10 !p-8 !font-sans;
+}
+
+.wallet-adapter-modal-title {
+  @apply !text-graphite !font-serif !italic !text-2xl !mb-6 !font-normal;
+}
+
+.wallet-adapter-modal-list {
+  @apply !grid !grid-cols-1 !gap-2;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  @apply !bg-graphite/5 !text-graphite hover:!bg-graphite/10 !rounded-xl !h-12;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button i {
+  @apply !w-6 !h-6;
+}
+
+.wallet-adapter-modal-button-close {
+  @apply !bg-graphite/5 !rounded-full !p-2 hover:!bg-graphite/10;
+}
+
+.wallet-adapter-modal-button-close svg {
+  @apply !fill-graphite;
+}
+
+/* Custom scrollbar for minimalist look */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-graphite/20 rounded-full;
+}
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-cream/20;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-graphite/40;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-cream/40;
+}

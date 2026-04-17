@@ -1,0 +1,5 @@
+{
+  "name": "Seeker Vault",
+  "description": "A secure, minimalist notepad for Solana Seeker users. Store notes, private keys, and seed phrases with local encryption and biometric-style access.",
+  "requestFramePermissions": []
+}
