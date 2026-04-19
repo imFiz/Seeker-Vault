@@ -68,7 +68,7 @@ import { Buffer } from 'buffer';
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { Note, KEY_ECOSYSTEMS, KEY_TYPES, LOGIN_TYPES, VaultSettings, ChecklistItem, ChecklistData, VaultFile, PAYMENT_WALLET_ADDRESS, PREMIUM_PRICE_USD, MAX_FILE_SIZE_BYTES, MAX_TOTAL_STORAGE_BYTES } from './types';
 import CryptoJS from 'crypto-js';
-import { encrypt, decrypt, clearEncryptionKey, isEncryptionReady, getEncryptionKey, hasWrappedKey, setupPin, unlockWithPin, requiresPinEntry, getLastPinTimestamp, isPinLocked, getPinLockRemainingMs } from './utils/crypto';
+import { encrypt, decrypt, clearEncryptionKey, isEncryptionReady, getEncryptionKey, hasWrappedKey, setupPin, unlockWithPin, requiresPinEntry, getLastPinTimestamp, isPinLocked, getPinLockRemainingMs, getPinFailCount, MAX_PIN_ATTEMPTS } from './utils/crypto';
 import { logError } from './utils/logger';
 // z-index scale: 400=toasts, 300=top modals (destroy/confirm), 200=normal modals, 100=overlays, 50=base UI
 import { clsx, type ClassValue } from 'clsx';
@@ -1357,7 +1357,21 @@ function VaultApp() {
       // Unwrap existing DEK
       const ok = await unlockWithPin(pinInput);
       if (!ok) {
-        showToast('error', 'Incorrect PIN', 'Wrong PIN');
+        // Check if this failure triggered the lockout
+        if (await isPinLocked()) {
+          const ms = await getPinLockRemainingMs();
+          const mm = Math.floor(ms / 60000);
+          const ss = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
+          showToast('error', `Too many attempts. Locked for ${mm}:${ss}`, 'Vault locked');
+        } else {
+          const fails = await getPinFailCount();
+          const remaining = Math.max(0, MAX_PIN_ATTEMPTS - fails);
+          if (remaining === 1) {
+            showToast('error', '1 attempt left — vault will lock for 5 min', 'Wrong PIN');
+          } else {
+            showToast('error', `Wrong PIN — ${remaining} attempts left`, 'Wrong PIN');
+          }
+        }
         setPinInput('');
         return;
       }

@@ -125,6 +125,9 @@ async function clearPinFails(): Promise<void> {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+export const MAX_PIN_ATTEMPTS = 3;
+export const getPinFailCount = async (): Promise<number> => getPinFails();
+
 export const hasWrappedKey = (): boolean => !!localStorage.getItem(K_WRAPPED);
 
 export const setupPin = async (pin: string, existingKeyHex?: string): Promise<void> => {
