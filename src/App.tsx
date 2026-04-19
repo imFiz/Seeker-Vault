@@ -316,6 +316,7 @@ function VaultApp() {
   const [changePinNew, setChangePinNew] = useState('');
   const [changePinError, setChangePinError] = useState('');
   const [pinLockRemaining, setPinLockRemaining] = useState(0);
+  const [pinFails, setPinFails] = useState(0);
   const [settings, setSettings] = useState<VaultSettings>(() => {
     const saved = localStorage.getItem('seeker_vault_settings');
     const parsed = saved ? JSON.parse(saved) : {};
@@ -873,8 +874,9 @@ function VaultApp() {
       tick();
       id = setInterval(tick, 1000);
     });
+    getPinFailCount().then(setPinFails);
     return () => clearInterval(id);
-  }, [showPinModal]);
+  }, [showPinModal, isLocked]);
 
   const STORAGE_KEY = 'seeker_vault_notes';
 
@@ -1362,9 +1364,12 @@ function VaultApp() {
           const ms = await getPinLockRemainingMs();
           const mm = Math.floor(ms / 60000);
           const ss = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
+          setPinLockRemaining(ms);
+          setPinFails(0);
           showToast('error', `Too many attempts. Locked for ${mm}:${ss}`, 'Vault locked');
         } else {
           const fails = await getPinFailCount();
+          setPinFails(fails);
           const remaining = Math.max(0, MAX_PIN_ATTEMPTS - fails);
           if (remaining === 1) {
             showToast('error', '1 attempt left — vault will lock for 5 min', 'Wrong PIN');
@@ -1386,6 +1391,7 @@ function VaultApp() {
     setFirstPin('');
     setPinStep('enter');
     setPendingPubKey('');
+    setPinFails(0);
     hideToast(); // dismiss any lingering "Wrong PIN" toast from earlier attempts
   };
 
@@ -1551,11 +1557,20 @@ function VaultApp() {
                   )}
                   autoFocus
                 />
-                {pinLockRemaining > 0 && (
-                  <p className="text-red-400 text-xs text-center">
+                {pinLockRemaining > 0 ? (
+                  <p className="text-red-400 text-xs text-center font-bold">
                     Locked — try in {Math.floor(pinLockRemaining / 60000)}:{Math.floor((pinLockRemaining % 60000) / 1000).toString().padStart(2, '0')}
                   </p>
-                )}
+                ) : pinFails > 0 && hasWrappedKey() ? (
+                  <p className={cn(
+                    "text-xs text-center font-bold",
+                    (MAX_PIN_ATTEMPTS - pinFails) === 1 ? "text-red-500" : "text-amber-500"
+                  )}>
+                    {(MAX_PIN_ATTEMPTS - pinFails) === 1
+                      ? 'Last attempt — next wrong PIN locks vault for 5 min'
+                      : `Wrong PIN — ${MAX_PIN_ATTEMPTS - pinFails} attempts left`}
+                  </p>
+                ) : null}
                 <button
                   onClick={handlePinSubmit}
                   disabled={pinLockRemaining > 0}
