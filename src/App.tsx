@@ -1372,6 +1372,7 @@ function VaultApp() {
     setFirstPin('');
     setPinStep('enter');
     setPendingPubKey('');
+    hideToast(); // dismiss any lingering "Wrong PIN" toast from earlier attempts
   };
 
   // ─── Migration modal: security upgrade for legacy sv_ek users ───────────────
