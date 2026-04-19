@@ -197,9 +197,59 @@ For a signed release build, place your keystore and run `./gradlew assembleRelea
 
 ---
 
-## License
+## Verifying authenticity of official builds
 
-See `LICENSE` in the repository.
+The only builds considered **official** are those signed with the Seeker Vault
+release keystore and distributed through channels designated by the authors.
+
+Once a release is published, this section will list:
+
+- The SHA-256 hash of the official APK for that version.
+- The SHA-256 fingerprint of the signing certificate.
+
+To verify an APK you obtained from the official channel:
+
+```bash
+# 1. Check the file hash
+sha256sum SeekerVault-<version>.apk
+
+# 2. Check the signing certificate fingerprint
+apksigner verify --print-certs SeekerVault-<version>.apk
+```
+
+Compare both values against what is published here. If either does not match,
+the APK is not an official build and should not be installed.
+
+A self-compiled APK built from this source tree will have a **different**
+signing fingerprint (your debug keystore). That is expected, and that build
+is perfectly fine for your own audit and personal use — but Android will not
+let you install it over an Official Build, and vice versa.
+
+---
+
+## License and distribution
+
+Seeker Vault is **source-available, not open source**. See [`LICENSE`](LICENSE)
+for the exact terms. In short:
+
+- ✅ You may **read, audit, and study** the code.
+- ✅ You may **compile and install** the app on your own device for personal,
+     non-commercial use.
+- ✅ You may **report bugs** and submit pull requests.
+- ❌ You may **not redistribute builds**, binaries, or APKs — modified or
+     unmodified, for a fee or free of charge.
+- ❌ You may **not use** the software commercially without a separate license.
+- ❌ You may **not publish** forks under the Seeker Vault name or branding.
+
+This model exists because trust in a wallet app depends on its code being
+auditable — anyone should be able to verify there is no backdoor. But the
+app itself is a product: hosting, signing, supporting, and improving it
+costs time and money. Official builds are distributed through paid or gated
+channels to sustain development.
+
+If you want to use the code beyond those terms (commercial deployment,
+redistribution, branded fork, etc.), contact the authors for a commercial
+license.
 
 ---
 

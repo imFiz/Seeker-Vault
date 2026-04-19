@@ -1,0 +1,87 @@
+Seeker Vault Source-Available License
+Version 1.0
+
+Copyright (c) 2025 Seeker Vault authors. All rights reserved.
+
+This license governs the source code of Seeker Vault (the "Software") published
+in this repository. The Software is made available so that any person can read,
+study, and independently verify how the application works. It is NOT open
+source in the OSI sense, and the rights granted below are strictly limited.
+
+1. PERMITTED USES
+
+   Subject to the restrictions below, you are permitted to:
+
+   (a) View, read, and study the source code for any purpose, including
+       security audit and academic research.
+
+   (b) Compile the source code and install the resulting build on devices
+       that you personally own, for your own private, non-commercial use.
+
+   (c) Modify the source code for the sole purpose of your own private
+       non-commercial use described in (b).
+
+   (d) Submit bug reports, security disclosures, and pull requests back
+       to the original repository.
+
+2. RESTRICTIONS
+
+   You MAY NOT, without prior written permission from the copyright holder:
+
+   (a) Distribute, publish, upload, mirror, host, or otherwise make
+       available to any third party any compiled build, binary, APK,
+       AAB, installer, or other executable form of the Software or any
+       derivative work, whether modified or unmodified, whether for a
+       fee or free of charge.
+
+   (b) Use the Software, in source or compiled form, for any commercial
+       purpose, including but not limited to selling, sublicensing,
+       offering as a service, bundling with a commercial product, or
+       using it to provide services to third parties.
+
+   (c) Remove, alter, or obscure any copyright notice, license notice,
+       trademark, branding, or attribution contained in the Software.
+
+   (d) Use the names "Seeker Vault", its logos, or any confusingly
+       similar mark to promote, endorse, or identify any fork, build,
+       or derivative work.
+
+   (e) Publicly distribute modified versions of the Software under the
+       Seeker Vault name or suggest that such modifications are endorsed
+       by the authors.
+
+3. OFFICIAL BUILDS
+
+   Only builds signed with the official Seeker Vault release keystore and
+   distributed through channels explicitly designated by the authors are
+   "Official Builds". The SHA-256 fingerprint of the official signing
+   certificate is published in the project README.
+
+   Self-compiled builds produced under Section 1(b) are NOT Official
+   Builds and must not be presented as such to any third party.
+
+4. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, SECURITY, AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+   BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN
+   AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR
+   IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE. USE OF THE SOFTWARE TO STORE CRYPTOGRAPHIC KEYS, SEED
+   PHRASES, OR FINANCIAL CREDENTIALS IS ENTIRELY AT YOUR OWN RISK.
+
+5. TERMINATION
+
+   Any breach of Sections 1 or 2 automatically terminates all rights
+   granted to you under this license.
+
+6. COMMERCIAL LICENSING
+
+   To obtain rights not granted under this license — including the right
+   to redistribute builds, to use the Software commercially, or to fork
+   under your own brand — please contact the copyright holder to
+   negotiate a separate written license.
+
+END OF TERMS
