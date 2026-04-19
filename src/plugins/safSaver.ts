@@ -6,6 +6,7 @@ export interface SafSaverPlugin {
     sourcePath?: string;  // absolute path to temp file on disk
     data?: string;        // base64 — alternative to sourcePath, plugin writes temp itself
     mimeType?: string;
+    skipPicker?: boolean; // true → silent write to Downloads via MediaStore, no UI
   }): Promise<{ success: boolean; uri: string; bytes: number }>;
 }
 

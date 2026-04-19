@@ -3,6 +3,8 @@ package com.seekervault.app;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -11,6 +13,17 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SafSaverPlugin.class);
         super.onCreate(savedInstanceState);
+        // Force LIGHT status bar icons (white) — visible on both cream and graphite.
+        // On Android 15 edge-to-edge, Capacitor StatusBar.setStyle is often ignored,
+        // so we set it natively to be reliable across all themes.
+        try {
+            WindowInsetsControllerCompat c = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            if (c != null) {
+                c.setAppearanceLightStatusBars(false);
+            }
+        } catch (Exception e) {
+            Log.w("SeekerVault", "Failed to set status bar appearance", e);
+        }
     }
 
     /**

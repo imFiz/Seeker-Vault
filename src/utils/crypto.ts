@@ -10,9 +10,9 @@ const K_WRAPPED    = 'sv_wrapped_dek';
 const K_IV         = 'sv_wrap_iv';
 const K_SALT       = 'sv_wrap_salt';
 const K_PIN_TS     = 'sv_last_pin_ts';
-const K_PIN_LOCK   = 'sv_pin_lock_until';
-// Preferences keys (sensitive counters)
+// Preferences keys (sensitive counters and lock state)
 const K_PIN_FAILS  = 'sv_pin_fails';
+const K_PIN_LOCK   = 'sv_pin_lock_until';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toBase64 = (buf: Uint8Array): string => {
@@ -51,14 +51,53 @@ async function deriveKEK(pin: string, salt: Uint8Array): Promise<CryptoKey> {
   );
 }
 
+// ─── Preferences-backed lock_until ───────────────────────────────────────────
+async function getPinLockUntil(): Promise<number> {
+  try {
+    const { value } = await Preferences.get({ key: K_PIN_LOCK });
+    if (value !== null && value !== undefined) {
+      return parseInt(value, 10);
+    }
+    // backward-compat migration from localStorage
+    const legacy = localStorage.getItem(K_PIN_LOCK);
+    if (legacy) {
+      const ts = parseInt(legacy, 10);
+      await Preferences.set({ key: K_PIN_LOCK, value: legacy });
+      localStorage.removeItem(K_PIN_LOCK);
+      return ts;
+    }
+    return 0;
+  } catch {
+    return parseInt(localStorage.getItem(K_PIN_LOCK) || '0', 10);
+  }
+}
+
+async function setPinLockUntil(ts: number): Promise<void> {
+  try {
+    await Preferences.set({ key: K_PIN_LOCK, value: String(ts) });
+    localStorage.removeItem(K_PIN_LOCK);
+  } catch {
+    localStorage.setItem(K_PIN_LOCK, String(ts));
+  }
+}
+
+async function clearPinLock(): Promise<void> {
+  try {
+    await Preferences.remove({ key: K_PIN_LOCK });
+    localStorage.removeItem(K_PIN_LOCK);
+  } catch {
+    localStorage.removeItem(K_PIN_LOCK);
+  }
+}
+
 // ─── PIN rate limiting ────────────────────────────────────────────────────────
-export const isPinLocked = (): boolean => {
-  const until = parseInt(localStorage.getItem(K_PIN_LOCK) || '0', 10);
+export const isPinLocked = async (): Promise<boolean> => {
+  const until = await getPinLockUntil();
   return Date.now() < until;
 };
 
-export const getPinLockRemainingMs = (): number => {
-  const until = parseInt(localStorage.getItem(K_PIN_LOCK) || '0', 10);
+export const getPinLockRemainingMs = async (): Promise<number> => {
+  const until = await getPinLockUntil();
   return Math.max(0, until - Date.now());
 };
 
@@ -112,7 +151,7 @@ export const setupPin = async (pin: string, existingKeyHex?: string): Promise<vo
     try { sessionStorage.removeItem('sv_ek'); } catch {}
 
     await clearPinFails();
-    localStorage.removeItem(K_PIN_LOCK);
+    await clearPinLock();
 
     DEK_HEX = bytesToHex(dekBytes);
   } catch (e) {
@@ -122,7 +161,7 @@ export const setupPin = async (pin: string, existingKeyHex?: string): Promise<vo
 };
 
 export const unlockWithPin = async (pin: string): Promise<boolean> => {
-  if (isPinLocked()) return false;
+  if (await isPinLocked()) return false;
   try {
     const wrappedB64 = localStorage.getItem(K_WRAPPED);
     const ivB64      = localStorage.getItem(K_IV);
@@ -140,7 +179,7 @@ export const unlockWithPin = async (pin: string): Promise<boolean> => {
     } catch {
       const fails = (await getPinFails()) + 1;
       if (fails >= 3) {
-        localStorage.setItem(K_PIN_LOCK, String(Date.now() + 5 * 60 * 1000));
+        await setPinLockUntil(Date.now() + 5 * 60 * 1000);
         await clearPinFails();
       } else {
         await setPinFails(fails);
@@ -151,7 +190,7 @@ export const unlockWithPin = async (pin: string): Promise<boolean> => {
     DEK_HEX = bytesToHex(new Uint8Array(dekBytes));
     localStorage.setItem(K_PIN_TS, String(Date.now()));
     await clearPinFails();
-    localStorage.removeItem(K_PIN_LOCK);
+    await clearPinLock();
     return true;
   } catch (e) {
     logError('crypto', e);

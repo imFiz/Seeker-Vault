@@ -34,6 +34,7 @@ export async function deriveBackupKeyV2Legacy(combinedBytes: Uint8Array): Promis
 }
 
 export async function deriveBackupKeyV3Hkdf(signatureBytes: Uint8Array): Promise<CryptoKey> {
+  // NOTE: label strings retain "v2" text for backward compatibility with existing backups — do not change
   const salt = ENC.encode('SeekerVault.Backup.v2.salt');
   const info = ENC.encode('SeekerVault.Backup.v2.key');
   const baseKey = await globalThis.crypto.subtle.importKey(

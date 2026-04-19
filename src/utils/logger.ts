@@ -18,7 +18,6 @@ export function logError(scope: string, error: unknown, meta?: any): void {
     stack: e?.stack,
     meta,
   };
-  console.error(`[SV:${scope}]`, error, meta);
   try {
     const raw = localStorage.getItem(LOG_KEY);
     const arr: LogEntry[] = raw ? JSON.parse(raw) : [];

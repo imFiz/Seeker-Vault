@@ -74,6 +74,7 @@ import { logError } from './utils/logger';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { BackupEnvelope, ExportResult, buildBackupEnvelope, exportBackupFile, exportAndShare, importBackupFile } from './utils/backupService';
+import { SafSaver } from './plugins/safSaver';
 import BackupRestoreModal from './components/BackupRestoreModal';
 import AppToast from './components/AppToast';
 
@@ -244,8 +245,12 @@ const getExtColor = (ext: string): string => EXT_COLORS[ext] || '#9ca3af';
 const ImagePreviewLoader: React.FC<{ file: VaultFile; onLoad: (url: string) => void; decrypt: (data: string) => Promise<string>; loadFileData: (id: string) => Promise<string> }> = ({ file, onLoad, decrypt, loadFileData }) => {
   const [failed, setFailed] = React.useState(false);
   const attempted = React.useRef(false);
+  const mountedRef = React.useRef(true);
   useEffect(() => {
+    mountedRef.current = true;
     if (attempted.current) return;
+    let t1: ReturnType<typeof setTimeout> | undefined;
+    let t2: ReturnType<typeof setTimeout> | undefined;
     const tryDecrypt = async () => {
       try {
         const cipher = await loadFileData(file.id);
@@ -260,17 +265,20 @@ const ImagePreviewLoader: React.FC<{ file: VaultFile; onLoad: (url: string) => v
     };
     tryDecrypt().then(ok => {
       if (!ok) {
-        const t1 = setTimeout(() => {
+        t1 = setTimeout(() => {
           tryDecrypt().then(ok2 => {
             if (!ok2) {
-              const t2 = setTimeout(() => { tryDecrypt().then(ok3 => { if (!ok3) setFailed(true); }); }, 1000);
-              return () => clearTimeout(t2);
+              t2 = setTimeout(() => { tryDecrypt().then(ok3 => { if (!ok3 && mountedRef.current) setFailed(true); }); }, 1000);
             }
           });
         }, 300);
-        return () => clearTimeout(t1);
       }
     });
+    return () => {
+      mountedRef.current = false;
+      if (t1 !== undefined) clearTimeout(t1);
+      if (t2 !== undefined) clearTimeout(t2);
+    };
   }, [file.id]);
   if (failed) return (
     <div className="w-full h-full flex items-center justify-center bg-black/5">
@@ -328,7 +336,6 @@ function VaultApp() {
   const [settingsScreen, setSettingsScreen] = useState<'main' | 'security' | 'preferences' | 'premium'>('main');
   const [lastExport, setLastExport] = useState<ExportResult | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
-  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<string>('');
@@ -383,6 +390,19 @@ function VaultApp() {
     setToast({ type, title, message });
   const hideToast = () => setToast(null);
 
+  // ─── visualViewport: track keyboard height for fixed Save button ──────────
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const kbHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty('--kb-height', `${kbHeight}px`);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+  }, []);
 
   // ─── IndexedDB helpers (unlimited storage) ───────────────────────────────
   const IDB_NAME = 'seeker_vault_idb';
@@ -470,12 +490,7 @@ function VaultApp() {
         return;
       }
       try {
-        await Filesystem.writeFile({
-          path: file.name,
-          data: decryptedData,
-          directory: Directory.Documents,
-          recursive: true,
-        });
+        await SafSaver.saveFile({ filename: file.name, data: decryptedData, mimeType: file.mimeType || 'application/octet-stream' });
         showToast('success', `Saved to Documents/${file.name}`, 'File saved');
       } catch (error) {
         logError('file-save', error); showToast('error', 'Failed to save file', 'Save error');
@@ -490,7 +505,14 @@ function VaultApp() {
       showToast('info', 'No files to restore', 'Vault empty');
       return;
     }
-    if (!await askConfirm('Restore All Files', `Extract ${vaultFiles.length} files to Documents folder? Files will be decrypted and stored unencrypted on your device.`, 'Restore', false)) return;
+    if (!await askConfirm(
+      'Restore All Files',
+      `${vaultFiles.length} file(s) will be saved silently to the public Downloads folder under their original names. Files will be UNENCRYPTED on your device after restore.\n\nContinue?`,
+      'Restore to Downloads',
+      false
+    )) return;
+
+    showToast('info', `Restoring ${vaultFiles.length} files to Downloads/...`, 'Starting');
     let restored = 0;
     let failed = 0;
     for (const file of vaultFiles) {
@@ -498,18 +520,23 @@ function VaultApp() {
         const cipher = await loadFileData(file.id);
         const decryptedData = await decrypt(cipher);
         if (!decryptedData) { failed++; continue; }
-        await Filesystem.writeFile({
-          path: file.name,
+        await SafSaver.saveFile({
+          filename: file.name,
           data: decryptedData,
-          directory: Directory.Documents,
-          recursive: true,
+          mimeType: file.mimeType || 'application/octet-stream',
+          skipPicker: true,
         });
         restored++;
-      } catch {
+      } catch (e) {
+        logError('file-restore-all', e, { file: file.name });
         failed++;
       }
     }
-    showToast('info', `Restored: ${restored}, Failed: ${failed}. Files are now unencrypted in Documents.`, 'Restore complete');
+    if (failed === 0) {
+      showToast('success', `${restored} files saved to Downloads/ — now UNENCRYPTED on device`, 'Restore complete');
+    } else {
+      showToast('info', `Saved ${restored}/${vaultFiles.length} to Downloads/. ${failed} failed.`, 'Partial restore');
+    }
   };
 
   const getPreview = async (file: VaultFile): Promise<string> => {
@@ -564,18 +591,13 @@ function VaultApp() {
       const dec = await decrypt(cipher);
       if (!dec) { showToast('error', 'Could not decrypt file.', 'Decrypt error'); return; }
 
-      // Method 1: Capacitor Filesystem → Documents (most reliable, no permissions needed)
+      // Method 1: SAF picker — Scoped Storage compatible on Android 10+
       try {
-        await Filesystem.writeFile({
-          path: file.name,
-          data: dec,
-          directory: Directory.Documents,
-          recursive: true,
-        });
-        showToast('info', `Saved to Documents/${file.name} — file is now UNENCRYPTED on device`, 'Exported');
+        await SafSaver.saveFile({ filename: file.name, data: dec, mimeType: file.mimeType || 'application/octet-stream' });
+        showToast('info', `Saved — file is now UNENCRYPTED on device`, 'Exported');
         return;
       } catch (err1) {
-        // Method 2: Web Share API
+        // Method 2: Web Share API fallback
         if ((navigator as any).share && (navigator as any).canShare) {
           try {
             const blob = base64ToBlob(dec, file.mimeType || 'application/octet-stream');
@@ -586,19 +608,8 @@ function VaultApp() {
             }
           } catch (_) {}
         }
-        // Method 3: External cache as last resort
-        try {
-          await Filesystem.writeFile({
-            path: file.name,
-            data: dec,
-            directory: Directory.External,
-            recursive: true,
-          });
-          showToast('info', `Saved to app folder/${file.name} — file is now UNENCRYPTED on device`, 'Exported');
-          return;
-        } catch (err3) {
-          logError('file-download-fallback', err3); showToast('error', 'Could not save file', 'Save error');
-        }
+        logError('file-download-fallback', err1);
+        showToast('error', 'Could not save file', 'Save error');
       }
     } catch (error) {
       logError('file-download', error); showToast('error', 'Download failed', 'Download error');
@@ -677,18 +688,19 @@ function VaultApp() {
         if (until > Date.now()) {
           setBioCooldown(true);
           setBioCooldownUntil(until);
-          setTimeout(() => { setBioCooldown(false); setBioAttempts(0); setBioCooldownUntil(0); Preferences.remove({ key: 'sv_bio_fails' }); Preferences.remove({ key: 'sv_bio_cooldown_until' }); }, until - Date.now());
+          const bioTid = setTimeout(() => { setBioCooldown(false); setBioAttempts(0); setBioCooldownUntil(0); Preferences.remove({ key: 'sv_bio_fails' }); Preferences.remove({ key: 'sv_bio_cooldown_until' }); }, until - Date.now());
+          return () => clearTimeout(bioTid);
         }
       } catch { /* ignore */ }
     })();
   }, []);
 
-  // StatusBar: fullscreen / overlay mode
+  // StatusBar: overlay mode + transparent bg. Icon color forced to LIGHT natively
+  // via MainActivity (WindowInsetsControllerCompat) — works reliably on Android 15.
   useEffect(() => {
     (async () => {
       try {
         await StatusBar.setOverlaysWebView({ overlay: true });
-        await StatusBar.setStyle({ style: Style.Light });
         await StatusBar.setBackgroundColor({ color: '#00000000' });
       } catch (_) {
         // Not running on mobile — ignore
@@ -850,14 +862,17 @@ function VaultApp() {
   }, [isLocked]);
 
   useEffect(() => {
-    if (!isPinLocked()) { setPinLockRemaining(0); return; }
-    const tick = () => {
-      const ms = getPinLockRemainingMs();
+    let id: ReturnType<typeof setInterval>;
+    const tick = async () => {
+      const ms = await getPinLockRemainingMs();
       setPinLockRemaining(ms);
       if (ms <= 0) clearInterval(id);
     };
-    tick();
-    const id = setInterval(tick, 1000);
+    isPinLocked().then(locked => {
+      if (!locked) { setPinLockRemaining(0); return; }
+      tick();
+      id = setInterval(tick, 1000);
+    });
     return () => clearInterval(id);
   }, [showPinModal]);
 
@@ -1005,7 +1020,7 @@ function VaultApp() {
       Sounds.biometricSuccess();
       advanceUnlockStep('biometric', settings);
     } catch (err) {
-      console.error('Biometric auth failed', err);
+      logError('biometric-auth', err);
       Sounds.biometricFail();
       // Biometric failed — show retry only, do NOT skip to other methods
     } finally {
@@ -1120,7 +1135,6 @@ function VaultApp() {
         }
       }
     } catch (err: any) {
-      console.error('Wallet connection failed:', err);
       Sounds.walletFail();
       if (err?.message?.includes('Found no installed')) {
         showToast('error', 'No compatible wallet app found.', 'Wallet not found');
@@ -1307,8 +1321,8 @@ function VaultApp() {
   const handlePinSubmit = async () => {
     if (!pinInput || pinInput.length < 4) { showToast('error', 'PIN must be at least 4 characters', 'Invalid PIN'); return; }
 
-    if (isPinLocked()) {
-      const ms = getPinLockRemainingMs();
+    if (await isPinLocked()) {
+      const ms = await getPinLockRemainingMs();
       const mm = Math.floor(ms / 60000);
       const ss = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
       showToast('error', `Too many attempts. Try in ${mm}:${ss}`, 'Locked');
@@ -1389,7 +1403,8 @@ function VaultApp() {
     };
     return (
       <div className={cn("w-full overflow-y-auto flex flex-col items-center", settings.isDarkMode ? "bg-graphite" : "bg-cream")} style={{ minHeight: '100dvh', paddingTop: 'max(env(safe-area-inset-top, 24px), 10vh)' }}>
-        <div className="w-full max-w-xs px-8 pb-8 space-y-4">
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: 'env(safe-area-inset-bottom, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, top: 0, height: 'env(safe-area-inset-top, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}        <div className="w-full max-w-xs px-8 pb-8 space-y-4">
           <SeekerLogo className="justify-center mb-2" isDarkMode={settings.isDarkMode} />
           <h2 className={cn("text-xl font-serif italic text-center", settings.isDarkMode ? "text-cream" : "text-graphite")}>
             Security Upgrade
@@ -1437,7 +1452,7 @@ function VaultApp() {
     const isNewPin = !hasWrappedKey();
     const pinTitle = isNewPin
       ? (pinStep === 'enter' ? 'Set Your PIN' : 'Confirm PIN')
-      : 'Enter PIN';
+      : 'PIN Authentication';
     const pinHint = isNewPin
       ? (pinStep === 'enter'
           ? 'This PIN protects your encryption key. Without it, your notes and files cannot be decrypted — even on this device. Keep it memorable. For backup access on another device, sign with your wallet.'
@@ -1446,44 +1461,102 @@ function VaultApp() {
     const pinBtnLabel = isNewPin
       ? (pinStep === 'enter' ? 'Next' : 'Save PIN')
       : 'Unlock';
+    const pinCaption = isNewPin ? 'KEY WRAPPING' : 'SECURE ACCESS';
+
+    const pinSteps: Array<'biometric' | 'wallet' | 'pin'> = ['biometric', 'wallet', 'pin'];
+    const pinEnabledSteps = new Set<string>();
+    if (settings.biometricEnabled) pinEnabledSteps.add('biometric');
+    if (settings.walletEnabled) pinEnabledSteps.add('wallet');
+    pinEnabledSteps.add('pin');
+
     return (
-      <div className={cn("w-full overflow-y-auto flex flex-col items-center", settings.isDarkMode ? "bg-graphite" : "bg-cream")} style={{ minHeight: '100dvh', paddingTop: 'max(env(safe-area-inset-top, 24px), 10vh)' }}>
-        <div className="w-full max-w-xs px-8 pb-8 space-y-4">
-          {!isNewPin && (settings.biometricEnabled || settings.walletEnabled) && (
-            <div className="flex items-center justify-center gap-2 mb-2">
-              {settings.biometricEnabled && <div className={cn("h-1 w-6 rounded-full", settings.isDarkMode ? "bg-cream" : "bg-graphite")} />}
-              {settings.walletEnabled && <div className={cn("h-1 w-6 rounded-full", settings.isDarkMode ? "bg-cream" : "bg-graphite")} />}
-              <div className={cn("h-1 w-6 rounded-full animate-pulse", settings.isDarkMode ? "bg-cream" : "bg-graphite")} />
+      <div
+        className={cn("w-full overflow-y-auto flex flex-col items-center", settings.isDarkMode ? "bg-graphite" : "bg-cream")}
+        style={{ minHeight: '100dvh', paddingTop: 'max(env(safe-area-inset-top, 24px), 10vh)' }}
+      >
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: 'env(safe-area-inset-bottom, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, top: 0, height: 'env(safe-area-inset-top, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}        <div className="w-full max-w-sm px-8 pb-8 space-y-12">
+          {/* Logo + step indicator */}
+          <div className="space-y-4 text-center">
+            <SeekerLogo className="justify-center" large isDarkMode={settings.isDarkMode} />
+            <div className="flex items-center justify-center gap-3">
+              {pinSteps.map(s => (
+                <div key={s} className={cn(
+                  "h-1 w-8 rounded-full transition-all duration-500",
+                  !pinEnabledSteps.has(s)
+                    ? (settings.isDarkMode ? "bg-cream/10" : "bg-graphite/10")
+                    : s === 'pin'
+                      ? (settings.isDarkMode ? "bg-cream" : "bg-graphite")
+                      : (settings.isDarkMode ? "bg-cream/20" : "bg-graphite/20")
+                )} />
+              ))}
             </div>
-          )}
-          <h2 className={cn("text-xl font-serif italic text-center", settings.isDarkMode ? "text-cream" : "text-graphite")}>
-            {pinTitle}
-          </h2>
-          <p className={cn("text-xs text-center", settings.isDarkMode ? "text-cream/50" : "text-graphite/50")}>
-            {pinHint}
-          </p>
-          <input
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={12}
-            autoComplete="off"
-            value={pinInput}
-            onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
-            placeholder="PIN (min. 4 digits)"
-            disabled={pinLockRemaining > 0}
-            className={cn("w-full border rounded-xl px-4 py-3 text-center focus:outline-none", settings.isDarkMode ? "border-white/20 bg-white/10 text-cream placeholder:text-cream/30" : "border-graphite/20 text-graphite bg-white")}
-            autoFocus
-          />
-          {pinLockRemaining > 0 && (
-            <p className="text-red-500 text-xs text-center">
-              Locked — try in {Math.floor(pinLockRemaining / 60000)}:{Math.floor((pinLockRemaining % 60000) / 1000).toString().padStart(2, '0')}
-            </p>
-          )}
-          <button onClick={handlePinSubmit} disabled={pinLockRemaining > 0} className={cn("w-full btn-primary py-3", pinLockRemaining > 0 && "opacity-50 cursor-not-allowed")}>
-            {pinBtnLabel}
-          </button>
+          </div>
+
+          {/* Caption + title */}
+          <div className="space-y-2 text-center">
+            <span className={cn("text-[10px] font-bold uppercase tracking-[0.3em]", settings.isDarkMode ? "text-cream/40" : "text-graphite/40")}>Security</span>
+            <h2 className={cn("text-lg font-serif italic", settings.isDarkMode ? "text-cream" : "text-graphite")}>{pinTitle}</h2>
+          </div>
+
+          {/* Black card */}
+          <div className={cn(
+            "p-10 bg-graphite rounded-[3rem] border border-white/5 shadow-2xl space-y-8 relative overflow-hidden",
+            settings.isDarkMode && "bg-cream border-graphite/5"
+          )}>
+            <div className="relative z-10 space-y-8">
+              <div className={cn(
+                "w-20 h-20 bg-cream/5 rounded-3xl flex items-center justify-center mx-auto backdrop-blur-xl border border-white/5",
+                settings.isDarkMode && "bg-graphite/5 border-graphite/5"
+              )}>
+                <Lock className={cn("w-10 h-10 text-cream/80", settings.isDarkMode && "text-graphite/80")} strokeWidth={1.5} />
+              </div>
+              <div className="space-y-2">
+                <p className={cn("text-[10px] uppercase tracking-[0.3em] font-black text-center", settings.isDarkMode ? "text-graphite/30" : "text-cream/30")}>Seeker Protocol</p>
+                <h3 className={cn("font-serif italic text-xl text-center", settings.isDarkMode ? "text-graphite" : "text-cream")}>{pinCaption}</h3>
+                <p className={cn("text-xs text-center pt-1", settings.isDarkMode ? "text-graphite/50" : "text-cream/50")}>{pinHint}</p>
+              </div>
+              <div className="space-y-3">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={12}
+                  autoComplete="off"
+                  value={pinInput}
+                  onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
+                  placeholder="PIN (min. 4 digits)"
+                  disabled={pinLockRemaining > 0}
+                  className={cn(
+                    "w-full rounded-xl px-4 py-3 text-center focus:outline-none border",
+                    settings.isDarkMode
+                      ? "bg-graphite/10 border-graphite/20 text-graphite placeholder:text-graphite/30"
+                      : "bg-cream/10 border-cream/20 text-cream placeholder:text-cream/30"
+                  )}
+                  autoFocus
+                />
+                {pinLockRemaining > 0 && (
+                  <p className="text-red-400 text-xs text-center">
+                    Locked — try in {Math.floor(pinLockRemaining / 60000)}:{Math.floor((pinLockRemaining % 60000) / 1000).toString().padStart(2, '0')}
+                  </p>
+                )}
+                <button
+                  onClick={handlePinSubmit}
+                  disabled={pinLockRemaining > 0}
+                  className={cn(
+                    "w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 shadow-2xl active:scale-95 transition-all",
+                    settings.isDarkMode ? "bg-graphite text-cream" : "bg-cream text-graphite",
+                    pinLockRemaining > 0 && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Lock className="w-4 h-4" />
+                  {pinBtnLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {isNewPin && pinStep === 'confirm' && (
             <button
               onClick={() => { setPinStep('enter'); setFirstPin(''); setPinInput(''); }}
@@ -1492,6 +1565,23 @@ function VaultApp() {
               Back
             </button>
           )}
+
+          {/* Footer */}
+          <div className="space-y-4 pt-4">
+            <button
+              onClick={() => setShowTermsOnly(true)}
+              className={cn(
+                "block mx-auto text-[8px] uppercase tracking-[0.2em] underline underline-offset-4 transition-colors",
+                settings.isDarkMode ? "text-cream/40 hover:text-cream" : "text-graphite/40 hover:text-graphite"
+              )}
+            >
+              Privacy Policy & EULA
+            </button>
+            <div className={cn("flex items-center justify-center gap-2", settings.isDarkMode ? "text-cream/20" : "text-graphite/20")}>
+              <Shield className="w-3 h-3" />
+              <span className="text-[8px] uppercase tracking-[0.2em]">Seeker Security Stack v2.0</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1509,33 +1599,45 @@ function VaultApp() {
     // Determine which steps are shown based on enabled methods
     const showBiometricStep = settings.biometricEnabled;
     const showWalletStep = settings.walletEnabled;
-    const showPinStep = settings.pinEnabled;
-    // If only PIN is enabled, show PIN screen directly
-    if (showPinStep && !showBiometricStep && !showWalletStep) {
-      // Show inline PIN unlock (reuse showPinModal path by triggering it)
-      if (!showPinModal) {
-        setShowPinModal(true);
-      }
+    const showPinStep = !showBiometricStep && !showWalletStep;
+
+    // Redirect PIN-only to showPinModal for unified beautiful screen
+    if (showPinStep && !showPinModal) {
+      setShowPinModal(true);
       return null;
     }
+
+    const lockedSteps: Array<'biometric' | 'wallet' | 'pin'> = ['biometric', 'wallet', 'pin'];
+    const lockedEnabledSteps = new Set<string>();
+    if (showBiometricStep) lockedEnabledSteps.add('biometric');
+    if (showWalletStep) lockedEnabledSteps.add('wallet');
+    lockedEnabledSteps.add('pin');
+
     return (
       <div className={cn(
         "h-screen w-full flex flex-col items-center justify-center bg-cream p-8 overflow-hidden transition-colors duration-500",
         settings.isDarkMode && "bg-graphite"
       )}>
-        <motion.div
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: 'env(safe-area-inset-bottom, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, top: 0, height: 'env(safe-area-inset-top, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center space-y-12 max-w-sm w-full"
         >
           <div className="space-y-4">
             <SeekerLogo className="justify-center" large isDarkMode={settings.isDarkMode} />
-            {showBiometricStep && showWalletStep && (
-              <div className="flex items-center justify-center gap-3">
-                <div className={cn("h-1 w-8 rounded-full transition-all duration-500", authStep === 'biometric' ? (settings.isDarkMode ? "bg-cream" : "bg-graphite") : (settings.isDarkMode ? "bg-cream/20" : "bg-graphite/20"))} />
-                <div className={cn("h-1 w-8 rounded-full transition-all duration-500", authStep === 'wallet' ? (settings.isDarkMode ? "bg-cream" : "bg-graphite") : (settings.isDarkMode ? "bg-cream/20" : "bg-graphite/20"))} />
-              </div>
-            )}
+            <div className="flex items-center justify-center gap-3">
+              {lockedSteps.map(s => (
+                <div key={s} className={cn(
+                  "h-1 w-8 rounded-full transition-all duration-500",
+                  !lockedEnabledSteps.has(s)
+                    ? (settings.isDarkMode ? "bg-cream/10" : "bg-graphite/10")
+                    : authStep === s
+                      ? (settings.isDarkMode ? "bg-cream" : "bg-graphite")
+                      : (settings.isDarkMode ? "bg-cream/20" : "bg-graphite/20")
+                )} />
+              ))}
+            </div>
           </div>
 
           <div className="relative">
@@ -1591,6 +1693,13 @@ function VaultApp() {
                     />
                   </button>
 
+                  <button
+                    onClick={() => setShowPinModal(true)}
+                    className={cn("mt-4 text-[9px] uppercase tracking-[0.2em] text-graphite/40 hover:text-graphite/70 transition-colors", settings.isDarkMode && "text-cream/40 hover:text-cream/70")}
+                  >
+                    Use PIN instead
+                  </button>
+
                 </motion.div>
               )}
 
@@ -1638,34 +1747,16 @@ function VaultApp() {
                     </div>
                   </div>
 
+                  <button
+                    onClick={() => setShowPinModal(true)}
+                    className={cn("text-[9px] uppercase tracking-[0.2em] text-graphite/40 hover:text-graphite/70 transition-colors", settings.isDarkMode && "text-cream/40 hover:text-cream/70")}
+                  >
+                    Use PIN instead
+                  </button>
+
                 </motion.div>
               )}
 
-              {/* PIN-only fallback when neither biometric nor wallet is shown */}
-              {!showBiometricStep && !showWalletStep && showPinStep && (
-                <motion.div
-                  key="pin-only"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-8"
-                >
-                  <div className="space-y-2">
-                    <span className={cn("text-[10px] font-bold uppercase tracking-[0.3em] text-graphite/40", settings.isDarkMode && "text-cream/40")}>Security</span>
-                    <h2 className={cn("text-lg font-serif italic text-graphite", settings.isDarkMode && "text-cream")}>Enter PIN</h2>
-                  </div>
-                  <button
-                    onClick={() => setShowPinModal(true)}
-                    className={cn(
-                      "w-full py-5 bg-graphite text-cream rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 shadow-2xl active:scale-95 transition-all",
-                      settings.isDarkMode && "bg-cream text-graphite"
-                    )}
-                  >
-                    <Lock className="w-5 h-5" />
-                    Enter PIN to Unlock
-                  </button>
-                </motion.div>
-              )}
             </AnimatePresence>
           </div>
 
@@ -1694,7 +1785,8 @@ function VaultApp() {
       "h-screen w-full flex flex-col bg-cream overflow-hidden transition-colors duration-500",
       settings.isDarkMode && "dark bg-graphite text-cream"
     )} style={{ paddingTop: 'env(safe-area-inset-top, 24px)' }}>
-      {/* Catalog Modal (Premium Upgrade / File Vault) */}
+      {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, bottom: 0, height: 'env(safe-area-inset-bottom, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}
+        {!settings.isDarkMode && (<div aria-hidden style={{ position: 'fixed', left: 0, right: 0, top: 0, height: 'env(safe-area-inset-top, 0px)', background: '#1a1a1a', zIndex: 9999, pointerEvents: 'none' }} />)}      {/* Catalog Modal (Premium Upgrade / File Vault) */}
       <AnimatePresence>
         {showCatalog && (
           <motion.div
@@ -1823,7 +1915,6 @@ function VaultApp() {
                       };
 
                       const handlePaymentError = (err: any) => {
-                        console.error('Payment failed:', err);
                         Sounds.walletFail();
                         setPaymentStatus('');
                         if (err?.message?.includes('User rejected') || err?.message?.includes('rejected') || err?.message?.includes('cancelled')) {
@@ -1859,7 +1950,7 @@ function VaultApp() {
                           for (const ep of endpoints) {
                             try {
                               const conn = new Connection(ep, { commitment: 'confirmed' });
-                              const sig = await conn.sendRawTransaction(signedBytes, { skipPreflight: false, preflightCommitment: 'confirmed' });
+                              const sig = await conn.sendRawTransaction(signedBytes, { skipPreflight: true, preflightCommitment: 'confirmed' });
                               statusFn('Confirming...');
                               await conn.confirmTransaction(sig, 'confirmed');
                               return;
@@ -1915,14 +2006,13 @@ function VaultApp() {
                           const solPrice = prices.sol > 0 ? prices.sol : 150;
                           const lamports = Math.max(1, Math.round((PREMIUM_PRICE_USD / solPrice) * LAMPORTS_PER_SOL));
                           const recipientKey = new PublicKey(PAYMENT_WALLET_ADDRESS);
-                          setPaymentStatus('Fetching blockhash...');
-                          const { blockhash } = await fetchBlockhash(setPaymentStatus);
                           let purchaserWalletAddress: string | null = null;
                           const txPromise = transact(async (wallet: any) => {
                             const authResult = await authorizeWallet(wallet);
                             if (!authResult?.accounts?.length) throw new Error('No accounts from wallet');
                             const payerKey = parsePayerKey(authResult.accounts[0].address);
                             purchaserWalletAddress = payerKey.toBase58();
+                            const { blockhash } = await fetchBlockhash(setPaymentStatus);
                             const message = new TransactionMessage({
                               payerKey,
                               recentBlockhash: blockhash,
@@ -1984,8 +2074,6 @@ function VaultApp() {
                           const skrAmount = BigInt(Math.max(1, Math.round((PREMIUM_PRICE_USD * 0.9 / skrPrice) * 1e6)));
                           let purchaserWalletAddress: string | null = null;
                           const recipientKey = new PublicKey(PAYMENT_WALLET_ADDRESS);
-                          setPaymentStatus('Fetching blockhash...');
-                          const { blockhash } = await fetchBlockhash(setPaymentStatus);
                           const destATA = getATA(recipientKey, SKR_MINT);
                           const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
                           const txPromise = transact(async (wallet: any) => {
@@ -1993,6 +2081,7 @@ function VaultApp() {
                             if (!authResult?.accounts?.length) throw new Error('No accounts from wallet');
                             const payerKey = parsePayerKey(authResult.accounts[0].address);
                             purchaserWalletAddress = payerKey.toBase58();
+                            const { blockhash } = await fetchBlockhash(setPaymentStatus);
                             const sourceATA = getATA(payerKey, SKR_MINT);
                             const createATAIdempotentIx = new TransactionInstruction({
                               programId: ATA_PROGRAM_ID,
@@ -2381,8 +2470,8 @@ function VaultApp() {
                               <Download className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm(`Delete "${file.name}"?`)) {
+                              onClick={async () => {
+                                if (await askConfirm('Delete file', `Are you sure you want to delete "${file.name}"?\n\nThis action is irreversible.`, 'Delete', true)) {
                                   deleteFileFromIDB(file.id).then(() => {
                                     setVaultFiles(prev => prev.filter(f => f.id !== file.id));
                                   });
@@ -2548,7 +2637,7 @@ function VaultApp() {
                       </button>
                       <div className="flex justify-center">
                         <button
-                          onClick={() => setShowPrivacyPolicy(true)}
+                          onClick={() => setShowTermsOnly(true)}
                           className={cn(
                             "flex items-center gap-1 text-[10px] uppercase tracking-widest transition-opacity hover:opacity-100",
                             settings.isDarkMode ? "text-cream/30 hover:text-cream/60" : "text-graphite/30 hover:text-graphite/60"
@@ -2890,79 +2979,6 @@ function VaultApp() {
         )}
       </AnimatePresence>
 
-      {/* Privacy Policy Modal */}
-      <AnimatePresence>
-        {showPrivacyPolicy && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-graphite/80 backdrop-blur-sm z-[200] flex items-end justify-center"
-            onClick={() => setShowPrivacyPolicy(false)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              onClick={e => e.stopPropagation()}
-              className={cn(
-                "w-full max-w-lg rounded-t-[2.5rem] p-8 shadow-2xl flex flex-col",
-                settings.isDarkMode ? "bg-graphite-light border-t border-white/10" : "bg-cream border-t border-graphite/5"
-              )}
-              style={{ maxHeight: '90vh' }}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className={cn("text-lg font-serif italic", settings.isDarkMode ? "text-cream" : "text-graphite")}>Privacy Policy</h3>
-                <button
-                  onClick={() => setShowPrivacyPolicy(false)}
-                  className={cn("p-2 rounded-full", settings.isDarkMode ? "bg-white/10" : "bg-graphite/5")}
-                >
-                  <X className={cn("w-4 h-4", settings.isDarkMode ? "text-cream" : "text-graphite")} />
-                </button>
-              </div>
-              <div className="overflow-y-auto flex-1 pr-1 space-y-4">
-                <p className={cn("text-[10px] uppercase tracking-widest", settings.isDarkMode ? "text-cream/40" : "text-graphite/40")}>Last updated: April 2026</p>
-                <p className={cn("text-sm leading-relaxed", settings.isDarkMode ? "text-cream/70" : "text-graphite/70")}>
-                  Seeker Vault ("the App") is a local-first security application. Your data never leaves your device.
-                </p>
-                {[
-                  {
-                    title: 'DATA COLLECTION',
-                    body: 'We do not collect, store, or transmit any personal data. All encryption keys, files, notes, and credentials are stored locally on your device using AES-256 encryption.'
-                  },
-                  {
-                    title: 'BLOCKCHAIN INTERACTIONS',
-                    body: 'When purchasing Premium features, the App interacts with the Solana blockchain. Transaction data is public on-chain. We do not store your wallet address on any server.'
-                  },
-                  {
-                    title: 'LOCAL STORAGE',
-                    body: "All vault data is stored in your device's local storage and IndexedDB. Uninstalling the app or clearing data will permanently delete all stored information."
-                  },
-                  {
-                    title: 'THIRD-PARTY SERVICES',
-                    body: 'The App may connect to: Jupiter API (price data), Helius/Alchemy RPC (blockchain queries). No personal data is shared with these services.'
-                  },
-                  {
-                    title: 'SECURITY',
-                    body: 'We use industry-standard AES-256 encryption with PBKDF2 key derivation. However, no system is 100% secure. You are responsible for maintaining device security.'
-                  },
-                  {
-                    title: 'CONTACT',
-                    body: 'For questions about this policy: solana.seeker.vault@gmail.com'
-                  }
-                ].map(section => (
-                  <div key={section.title}>
-                    <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", settings.isDarkMode ? "text-cream/50" : "text-graphite/50")}>{section.title}</p>
-                    <p className={cn("text-sm leading-relaxed", settings.isDarkMode ? "text-cream/70" : "text-graphite/70")}>{section.body}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Biometric Reveal Modal */}
       <AnimatePresence>
         {biometricRevealTarget && (
@@ -3071,8 +3087,8 @@ function VaultApp() {
                 </button>
                 <button
                   onClick={async () => {
-                    if (isPinLocked()) {
-                      const ms = getPinLockRemainingMs();
+                    if (await isPinLocked()) {
+                      const ms = await getPinLockRemainingMs();
                       const mm = Math.floor(ms / 60000);
                       const ss = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
                       setDestroyPinError(`Too many attempts. Try in ${mm}:${ss}`);
@@ -3080,8 +3096,8 @@ function VaultApp() {
                     }
                     const ok = await unlockWithPin(destroyPinInput);
                     if (!ok) {
-                      if (isPinLocked()) {
-                        const ms = getPinLockRemainingMs();
+                      if (await isPinLocked()) {
+                        const ms = await getPinLockRemainingMs();
                         const mm = Math.floor(ms / 60000);
                         const ss = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
                         setDestroyPinError(`Too many attempts. Locked for ${mm}:${ss}`);
@@ -3396,7 +3412,7 @@ function VaultApp() {
       </div>
 
       {/* Content Area */}
-      <main className="flex-1 overflow-y-auto px-6 pb-28">
+      <main className="flex-1 overflow-y-auto px-6" style={{ paddingBottom: 'calc(7rem + env(safe-area-inset-bottom, 0px))' }}>
         <AnimatePresence mode="wait">
           {activeTab === 'private' ? (
             <motion.div
@@ -3676,6 +3692,20 @@ function VaultApp() {
                     />
                   </label>
 
+                  {/* Restore All Files — sibling style with Add File */}
+                  {vaultFiles.length > 0 && (
+                    <button
+                      onClick={handleRestoreAllFiles}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-3 p-5 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:border-emerald-500 active:scale-[0.98]",
+                        settings.isDarkMode ? "border-white/10 text-cream/60" : "border-graphite/10 text-graphite/60"
+                      )}
+                    >
+                      <Download className="w-5 h-5" />
+                      <span className="text-sm font-bold">Restore All {vaultFiles.length} File{vaultFiles.length !== 1 ? 's' : ''} to Device</span>
+                    </button>
+                  )}
+
                   {/* Category filter */}
                   <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
                     {[
@@ -3756,8 +3786,8 @@ function VaultApp() {
                                     settings.isDarkMode ? "bg-white/10 text-cream" : "bg-graphite/5 text-graphite")}
                                 ><Download className="w-3.5 h-3.5" /></button>
                                 <button
-                                  onClick={() => {
-                                    if (confirm(`Delete "${file.name}"?`)) {
+                                  onClick={async () => {
+                                    if (await askConfirm('Delete file', `Are you sure you want to delete "${file.name}"?\n\nThis action is irreversible.`, 'Delete', true)) {
                                       deleteFileFromIDB(file.id).then(() => setVaultFiles(prev => prev.filter(f => f.id !== file.id)));
                                       setPreviewCache(prev => { const n = {...prev}; delete n[file.id]; return n; });
                                       Sounds.keyClick();
@@ -3795,8 +3825,8 @@ function VaultApp() {
                                   settings.isDarkMode ? "bg-white/10 text-cream" : "bg-graphite/5 text-graphite")}
                               ><Download className="w-4 h-4" /></button>
                               <button
-                                onClick={() => {
-                                  if (confirm(`Delete "${file.name}"?`)) {
+                                onClick={async () => {
+                                  if (await askConfirm('Delete file', `Are you sure you want to delete "${file.name}"?\n\nThis action is irreversible.`, 'Delete', true)) {
                                     deleteFileFromIDB(file.id).then(() => setVaultFiles(prev => prev.filter(f => f.id !== file.id)));
                                     Sounds.keyClick();
                                   }
@@ -3858,9 +3888,9 @@ function VaultApp() {
                 </div>
               </header>
 
-              {/* Two-section flex layout: scrollable content + sticky save button */}
+              {/* Two-section flex layout: scrollable content + fixed save button */}
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-6" style={isEditing ? { paddingBottom: 'calc(5rem + var(--kb-height, 0px))' } : undefined}>
                   {isEditing ? (
                     <EditorView
                       note={selectedNote}
@@ -3879,13 +3909,11 @@ function VaultApp() {
                 </div>
                 {isEditing && (
                   <div className={cn(
-                    'shrink-0 px-6 py-4 border-t',
+                    'fixed left-0 right-0 px-6 py-4 border-t z-50',
                     settings.isDarkMode ? 'bg-graphite border-white/10' : 'bg-cream border-graphite/5'
-                  )} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                  )} style={{ bottom: 'var(--kb-height, 0px)', paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
                     <button
                       onClick={() => {
-                        // The EditorView exposes its save via a callback ref trick
-                        // We use a DOM event approach: fire a custom event
                         document.dispatchEvent(new Event('vault-editor-save'));
                       }}
                       className={cn(
@@ -3967,10 +3995,10 @@ function VaultApp() {
 
       {/* Mobile Bottom Navigation */}
       <nav className={cn(
-        "fixed bottom-0 left-0 right-0 h-24 bg-cream/95 backdrop-blur-2xl border-t border-graphite/5 px-4 flex flex-col z-40 transition-colors",
+        "fixed bottom-0 left-0 right-0 bg-cream/95 backdrop-blur-2xl border-t border-graphite/5 px-4 flex flex-col z-40 transition-colors",
         settings.isDarkMode && "bg-graphite/95 border-white/5",
         selectedNote && activeTab !== 'private' && "hidden"
-      )}>
+      )} style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex-1 flex items-center justify-between">
           <div className="flex-1 flex justify-center">
             <NavButton
@@ -4456,12 +4484,15 @@ function EditorView({ note, onSave, onCancel, isDarkMode }: { note: Note, onSave
 function DetailView({ note, showContent, onToggleShow, isDarkMode }: { note: Note, showContent: boolean, onToggleShow: () => void, isDarkMode?: boolean }) {
   const [data, setData] = useState<any>(null);
   useEffect(() => {
+    if (!note.content) { setData(null); return; }
     decrypt(note.content).then(plain => {
       try { setData(JSON.parse(plain || note.content)); } catch { setData(plain || note.content); }
     });
   }, [note.content]);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  if (!data) return null;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

@@ -52,11 +52,35 @@ public class SafSaverPlugin extends Plugin {
     public void saveFile(PluginCall call) {
         String filename = call.getString("filename");
         String sourcePath = call.getString("sourcePath");
+        String base64Data = call.getString("data");
         String mimeType = call.getString("mimeType", "application/octet-stream");
 
-        if (filename == null || sourcePath == null) {
-            call.reject("filename and sourcePath required");
+        if (filename == null) {
+            call.reject("filename required");
             return;
+        }
+        if (sourcePath == null && base64Data == null) {
+            call.reject("sourcePath or data required");
+            return;
+        }
+
+        // If caller passed base64 data directly, write it to a temp file first.
+        if (sourcePath == null) {
+            try {
+                File tempDir = new File(getContext().getCacheDir(), "saf_temp");
+                if (!tempDir.exists()) tempDir.mkdirs();
+                File tempFile = new File(tempDir, System.currentTimeMillis() + "_" + filename);
+                byte[] bytes = android.util.Base64.decode(base64Data, android.util.Base64.NO_WRAP);
+                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                    fos.write(bytes);
+                }
+                sourcePath = tempFile.getAbsolutePath();
+                Log.d("SafSaverTrace", "Wrote base64 to temp: " + sourcePath + " (" + bytes.length + " bytes)");
+            } catch (Exception e) {
+                Log.e("SafSaverTrace", "Failed to write base64 to temp", e);
+                call.reject("Failed to stage file: " + e.getMessage());
+                return;
+            }
         }
 
         File source = new File(sourcePath);
@@ -64,6 +88,32 @@ public class SafSaverPlugin extends Plugin {
         if (!source.exists() || source.length() == 0) {
             call.reject("Source file missing or empty: " + sourcePath);
             return;
+        }
+
+        // Silent mode: skip SAF picker, write directly to Downloads via MediaStore.
+        boolean skipPicker = call.getBoolean("skipPicker", false);
+        if (skipPicker) {
+            try {
+                Uri uri = writeToMediaStore(getContext(), source, filename, mimeType);
+                long bytes = source.length();
+                // cleanup temp file if we created it from base64
+                if (base64Data != null) source.delete();
+                if (uri == null) {
+                    call.reject("MediaStore write failed");
+                    return;
+                }
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("uri", uri.toString());
+                ret.put("bytes", bytes);
+                call.resolve(ret);
+                return;
+            } catch (Exception e) {
+                Log.e("SafSaverTrace", "skipPicker save failed", e);
+                if (base64Data != null) source.delete();
+                call.reject("Silent save failed: " + e.getMessage());
+                return;
+            }
         }
 
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS, 0);
