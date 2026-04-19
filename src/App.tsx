@@ -2727,7 +2727,7 @@ function VaultApp() {
                     </div>
 
                     {/* Change PIN */}
-                    {settings.pinEnabled && (
+                    {hasWrappedKey() && (
                       changePinStep === null ? (
                         <button
                           onClick={() => { setChangePinStep('current'); setChangePinInput(''); setChangePinNew(''); setChangePinError(''); }}
