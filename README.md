@@ -126,7 +126,9 @@ If you find a security issue, please open an issue or contact the maintainer —
 - We do **not** share data with third parties because we do not have your data.
 - The only network call is the MWA WebSocket — triggered only by your explicit wallet actions, carrying no private data (only a challenge/signature exchange).
 
-The full EULA is included in the app under **Settings → Privacy Policy & Terms**.
+The full legal documents are available here:
+- [Privacy Policy](https://github.com/imFiz/Seeker-Vault/blob/main/PRIVACY.md)
+- [End User License Agreement (EULA)](https://github.com/imFiz/Seeker-Vault/blob/main/EULA.md)
 
 ---
 

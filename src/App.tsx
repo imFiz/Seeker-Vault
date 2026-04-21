@@ -4797,6 +4797,30 @@ function TermsScreen({ onAccept, isRevisiting = false, isDarkMode }: { onAccept:
         <p className={cn("text-sm mt-2 text-graphite/60", isDarkMode && "text-cream/60")}>Welcome to Seeker Vault. By using this application, you agree to the following terms and conditions:</p>
       </div>
 
+      {/* GitHub links */}
+      <div className="flex-shrink-0 px-8 pb-2 max-w-md w-full mx-auto flex gap-3">
+        <button
+          onClick={async () => { try { await Browser.open({ url: 'https://github.com/imFiz/Seeker-Vault/blob/main/PRIVACY.md' }); } catch { window.open('https://github.com/imFiz/Seeker-Vault/blob/main/PRIVACY.md', '_blank'); } }}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] uppercase tracking-widest font-medium transition-opacity hover:opacity-80",
+            isDarkMode ? "border-white/20 text-cream/60" : "border-graphite/15 text-graphite/50"
+          )}
+        >
+          <ExternalLink className="w-3 h-3" />
+          Privacy Policy
+        </button>
+        <button
+          onClick={async () => { try { await Browser.open({ url: 'https://github.com/imFiz/Seeker-Vault/blob/main/EULA.md' }); } catch { window.open('https://github.com/imFiz/Seeker-Vault/blob/main/EULA.md', '_blank'); } }}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-[10px] uppercase tracking-widest font-medium transition-opacity hover:opacity-80",
+            isDarkMode ? "border-white/20 text-cream/60" : "border-graphite/15 text-graphite/50"
+          )}
+        >
+          <ExternalLink className="w-3 h-3" />
+          EULA
+        </button>
+      </div>
+
       {/* Scrollable terms content */}
       <div className="flex-1 overflow-y-auto px-8 pb-4 max-w-md w-full mx-auto">
         <div className={cn(
