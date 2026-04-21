@@ -1723,13 +1723,6 @@ function VaultApp() {
                     />
                   </button>
 
-                  <button
-                    onClick={() => setShowPinModal(true)}
-                    className={cn("mt-4 text-[9px] uppercase tracking-[0.2em] text-graphite/40 hover:text-graphite/70 transition-colors", settings.isDarkMode && "text-cream/40 hover:text-cream/70")}
-                  >
-                    Use PIN instead
-                  </button>
-
                 </motion.div>
               )}
 
@@ -1776,13 +1769,6 @@ function VaultApp() {
                       </div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => setShowPinModal(true)}
-                    className={cn("text-[9px] uppercase tracking-[0.2em] text-graphite/40 hover:text-graphite/70 transition-colors", settings.isDarkMode && "text-cream/40 hover:text-cream/70")}
-                  >
-                    Use PIN instead
-                  </button>
 
                 </motion.div>
               )}

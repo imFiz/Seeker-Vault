@@ -3,7 +3,7 @@
 
 # Seeker Vault
 
-**A zero-knowledge Solana wallet and encrypted personal vault for Android.**
+**An encrypted local vault for Android with wallet-based authentication and backup.**
 
 Your keys. Your files. Your device. Nothing leaves.
 
@@ -13,12 +13,16 @@ Your keys. Your files. Your device. Nothing leaves.
 
 ## What is Seeker Vault?
 
-Seeker Vault is an Android application that combines two things people usually split across multiple apps:
+Seeker Vault is an Android application that stores your most sensitive data — seed phrases, passwords, notes, and files — encrypted locally on your device.
 
-1. **A non-custodial Solana wallet** — send, receive, swap, and sign with Phantom, Solflare, and any other Mobile Wallet Adapter (MWA) compatible wallet.
-2. **An encrypted personal vault** — store seed phrases, passwords, notes, documents, images, and any other files on your device, fully encrypted at rest.
+Your Solana wallet (connected via Mobile Wallet Adapter) serves two purposes:
 
-Everything is stored **locally on your phone**. There is no server, no account, no cloud sync, no telemetry, no analytics. If your phone is offline, the app still works — except for blockchain operations, which obviously need the internet.
+1. **Authentication** — sign-in with wallet signature as an optional additional factor.
+2. **Backup key derivation** — the vault backup encryption key is derived via HKDF from a deterministic wallet signature, meaning your wallet is the key to restoring your vault on a new device.
+
+The app does **not** send transactions, check balances, perform swaps, or function as a full wallet. MWA is used solely for signing — never for on-chain operations.
+
+Everything is stored **locally on your phone**. There is no server, no account, no cloud sync, no telemetry, no analytics.
 
 ---
 
@@ -42,12 +46,9 @@ The developer, Google, your wallet provider, and anyone else **cannot** recover 
 - **No account system.** There is nothing to register. Nothing to log into.
 
 The only network calls the app makes are:
-- Solana RPC (to read balances and broadcast transactions you explicitly sign),
-- Jupiter aggregator (when you explicitly initiate a swap),
-- Mobile Wallet Adapter WebSocket (only when you connect a wallet),
-- Public price feeds (for display).
+- **Mobile Wallet Adapter WebSocket** — only when you explicitly trigger a wallet action (sign-in or backup key derivation).
 
-You can verify this yourself with any network-monitoring tool.
+That is all. You can verify this yourself with any network-monitoring tool.
 
 ### 3. Strong, modern cryptography
 
@@ -63,8 +64,10 @@ Data-encryption keys live in memory only as hex strings and are zeroed out the m
 
 ### 4. Defense in depth
 
-- **PIN lockout.** After repeated failed PIN attempts, the app locks itself for an escalating cool-down period. The lockout timer is stored in Android's `Preferences` (protected) — not in `localStorage` — so it survives DevTools and `adb` tampering.
+- **PIN lockout.** After 3 failed PIN attempts, the app locks for 5 minutes. The lockout timer is stored in Android's `Preferences` (protected) — not in `localStorage` — so it survives DevTools and `adb` tampering.
 - **Biometric gate.** Optional fingerprint/face unlock backed by the Android Keystore. The biometric unlock is a gate to the encrypted DEK, not a replacement for it.
+- **Wallet auth gate.** Optional wallet signature verification as an additional authentication factor.
+- **Auto-lock.** Configurable auto-lock timer: 1, 3, 5, or 10 minutes of inactivity.
 - **Clipboard hygiene.** Sensitive values are cleared from the clipboard 30 seconds after copy, and 150 ms after paste.
 - **Obfuscated release build.** ProGuard/R8 enabled for release APKs.
 - **No `allowBackup`.** The OS cannot silently copy vault data off the phone.
@@ -84,35 +87,27 @@ If you find a security issue, please open an issue or contact the maintainer —
 
 ## Features
 
-### Solana wallet
-- Connect any Mobile Wallet Adapter-compatible wallet (Phantom, Solflare, Seed Vault, etc.)
-- View SOL and SPL token balances
-- Send and receive SOL and tokens
-- Swap tokens via Jupiter aggregator
-- Sign messages and transactions
-- Transaction history
-- Live USD pricing
-
 ### Encrypted vault
-- **Seed phrases** — structured entry with word count validation
+- **Seed phrases** — structured entry with word count validation (12/18/24 words)
 - **Passwords** — per-entry fields for site/username/password/notes
 - **Secure notes** — plain rich text you want no one else to see
 - **Files** — any file type: documents, images, PDFs, archives, keys
 - **Inline image previews** for supported formats
 - **Bulk restore** — export all files back to your device's `Downloads/` folder in one tap
-- **Individual export** — pick exact destination via the system file picker
+- **Individual export** — pick exact destination via the system file picker (Storage Access Framework)
 - **Share** — send decrypted content to another app via the Android share sheet
 
 ### Backup & recovery
-- **Wallet-signed encrypted backups.** Your vault is exported as an encrypted `.svb` file. The decryption key is derived (via HKDF) from a deterministic signature produced by your Solana wallet — meaning **as long as you have your wallet, you can restore the vault, even on a new phone.**
+- **Wallet-signed encrypted backups.** Your vault is exported as an encrypted `.svb` file. The decryption key is derived (via HKDF-SHA256) from a deterministic signature produced by your Solana wallet — meaning **as long as you have your wallet, you can restore the vault on any device.**
 - **Portable.** Backup files are plain encrypted blobs — store them on a USB stick, in a cloud drive, email them to yourself. They are useless without your wallet signature.
 - **Versioned.** The backup format is versioned (`v3`), so future format upgrades won't orphan your old backups.
 
 ### Authentication
-- **PIN code** — 4-to-8-digit numeric with rate-limiting and lockout
-- **Biometric unlock** (optional) — fingerprint or face
-- **Wallet authentication** (optional) — sign-in with a wallet signature
-- **Triple-factor mode** — require any combination of the three
+- **PIN code** — 4-to-8-digit numeric with rate-limiting (3 attempts → 5-minute lockout)
+- **Biometric unlock** (optional) — fingerprint or face via Android Keystore
+- **Wallet authentication** (optional) — sign-in with a wallet signature as an additional factor
+- **Combined factors** — require any combination of the three for maximum security
+- **Auto-lock** — 1 / 3 / 5 / 10 minutes of inactivity
 
 ### UX
 - **Light and dark themes**
@@ -127,9 +122,9 @@ If you find a security issue, please open an issue or contact the maintainer —
 - We collect **nothing.**
 - We store **nothing** outside your device.
 - We have **no servers** that hold your data.
-- We **cannot** see your vault, your balances, your addresses, or your usage patterns.
+- We **cannot** see your vault, your addresses, or your usage patterns.
 - We do **not** share data with third parties because we do not have your data.
-- Network requests are limited to blockchain RPC, price feeds, and wallet-adapter handshakes — all of which are necessary for the features that trigger them, and none of which carry your private data.
+- The only network call is the MWA WebSocket — triggered only by your explicit wallet actions, carrying no private data (only a challenge/signature exchange).
 
 The full EULA is included in the app under **Settings → Privacy Policy & Terms**.
 
@@ -138,7 +133,7 @@ The full EULA is included in the app under **Settings → Privacy Policy & Terms
 ## Threat model
 
 Seeker Vault protects you against:
-- ✅ Lost or stolen phone (attacker cannot decrypt without your PIN/biometric)
+- ✅ Lost or stolen phone (attacker cannot decrypt without your PIN/biometric/wallet)
 - ✅ Remote compromise of a backend (there is no backend)
 - ✅ Supply-chain compromise of a cloud provider (we do not use one for your data)
 - ✅ Malicious OS-level backup replication (disabled at manifest level)
@@ -190,7 +185,7 @@ For a signed release build, place your keystore and run `./gradlew assembleRelea
 - **React 19** + **TypeScript**
 - **Vite 6** for the web build
 - **Capacitor 6** for the Android shell
-- **@solana/web3.js** + **@solana-mobile/wallet-adapter-mobile** for Solana/MWA
+- **@solana-mobile/wallet-adapter-mobile** for MWA (authentication and backup key signing only)
 - **Web Crypto API** for all cryptographic primitives — no custom crypto
 - **TailwindCSS** + **lucide-react** for UI
 - **Native Java plugin** (`SafSaverPlugin`) for Storage Access Framework file export
@@ -241,7 +236,7 @@ for the exact terms. In short:
 - ❌ You may **not use** the software commercially without a separate license.
 - ❌ You may **not publish** forks under the Seeker Vault name or branding.
 
-This model exists because trust in a wallet app depends on its code being
+This model exists because trust in a security app depends on its code being
 auditable — anyone should be able to verify there is no backdoor. But the
 app itself is a product: hosting, signing, supporting, and improving it
 costs time and money. Official builds are distributed through paid or gated
