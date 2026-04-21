@@ -199,10 +199,16 @@ For a signed release build, place your keystore and run `./gradlew assembleRelea
 The only builds considered **official** are those signed with the Seeker Vault
 release keystore and distributed through channels designated by the authors.
 
-Once a release is published, this section will list:
+### Official release fingerprints
 
-- The SHA-256 hash of the official APK for that version.
-- The SHA-256 fingerprint of the signing certificate.
+**v1.0** (`com.seekervault.app`, versionCode 1)
+
+| What | Value |
+|---|---|
+| APK SHA-256 | `958022321efd9d88dda1d3e7c4245c6c2e09c91cf1762117249c907daa8a95b4` |
+| Signing cert SHA-256 | `19:F2:E3:62:52:77:C1:97:29:57:96:C3:59:FA:A8:31:6C:AF:33:33:D0:1E:23:54:04:30:07:DB:36:17:E6:92` |
+| Signing cert SHA-1 | `7A:AB:65:53:7B:7E:51:89:BC:61:6E:CC:68:D2:86:F3:16:4F:C1:D2` |
+| Signer DN | `CN=Daniyar Gabdullin, OU=Aibat, O=Aibat, L=Almaty, ST=Almaty, C=KZ` |
 
 To verify an APK you obtained from the official channel:
 
