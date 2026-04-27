@@ -6,7 +6,7 @@
 
 **Your keys. Your files. Your device. Nothing leaves.**
 
-A zero-knowledge encrypted vault for Android, unlocked by your Solana wallet.
+A fully local, zero-knowledge encrypted vault for Android, unlocked by your Solana wallet.
 
 [![License](https://img.shields.io/badge/license-Source--Available-9b5dff)](LICENSE)
 [![Solana](https://img.shields.io/badge/Solana-Mainnet-14F195?logo=solana&logoColor=white)](https://solana.com)
@@ -41,7 +41,7 @@ Crypto users have **nowhere safe** to keep their digital life:
 
 ## 💡 The Solution
 
-One Android app that holds your **entire digital life**, encrypted with modern cryptography, gated by your **PIN + biometric + Solana wallet signature**, and backed up with a key derived from your wallet — meaning your wallet itself is the recovery key.
+One fully local Android app that holds your entire digital life. Your data stays exclusively on-device, encrypted with modern cryptography, gated by your PIN + biometric + Solana wallet signature, and backed up with a key derived from your wallet — meaning your wallet itself is the recovery key.
 
 
 ## 🟣 Why Solana
