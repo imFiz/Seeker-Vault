@@ -64,7 +64,7 @@ The vault backup encryption key is derived (via **HKDF-SHA256**) from a determin
 Premium unlock is payable in **SOL** or **SKR** — paying in SKR gets a **10% discount**. This drives organic, non-speculative demand for the Seeker ecosystem token from every paying user.
 
 ### 5. Solana dApp Store distribution
-Official builds are gated through Solana's trust channels. The release **APK SHA-256** is published in this README and minted as a **Release NFT on Solana mainnet** — anyone can verify the binary they're installing matches the signed release.
+Official builds are gated through Solana's trust channels. The release **APK SHA-256** is published in this README — anyone can verify the binary they're installing matches the signed release.
 
 ---
 
