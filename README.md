@@ -295,7 +295,7 @@ For commercial licensing, contact the author.
 
 ## 🙋 Author
 
-**Daniyar Gabdullin** — Aibat / X-BOOSTER · Almaty, Kazakhstan
+**Daniyar Gabdullin** · Almaty, Kazakhstan
 
 If you find a security issue, please open an issue or contact the maintainer **before** disclosing publicly.
 
