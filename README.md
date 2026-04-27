@@ -43,15 +43,6 @@ Crypto users have **nowhere safe** to keep their digital life:
 
 One Android app that holds your **entire digital life**, encrypted with modern cryptography, gated by your **PIN + biometric + Solana wallet signature**, and backed up with a key derived from your wallet — meaning your wallet itself is the recovery key.
 
-| What you store | What's protected |
-|---|---|
-| 🌱 **Seed phrases** | 12 / 18 / 24-word entry, validated, encrypted per record |
-| 🔐 **Passwords** | Site / username / password / notes — AES-256-GCM with unique IV |
-| 📝 **Encrypted notes** | Free-form rich text, fully encrypted at rest |
-| 📁 **Private files (200 MB)** | Hidden encrypted vault for photos, PDFs, legal docs, backup QR codes |
-| 🔑 **API keys & wallet keys** | Tagged by chain (EVM / Solana / Cosmos / OpenAI / etc.) |
-
----
 
 ## 🟣 Why Solana
 
@@ -156,10 +147,11 @@ flowchart TB
 ## ✨ Features
 
 ### Encrypted vault
-- 🌱 **Seed phrases** — structured 12 / 18 / 24-word entry with checksum validation
-- 🔐 **Passwords** — site / username / password / notes per entry
-- 📝 **Secure notes** — encrypted free-form rich text
-- 📁 **Files** — any type: documents, images, PDFs, archives, keys
+- 🌱 **Seed phrases** | 12 / 18 / 24-word entry, validated, encrypted per record 
+- 🔑 **API keys & wallet keys** | Tagged by chain (EVM / Solana / Cosmos / OpenAI / etc.) |
+- 🔐 **Passwords** | Site / username / password / notes — AES-256-GCM with unique IV 
+- 📝 **Encrypted notes** | Free-form rich text, fully encrypted at rest 
+- 📁 **Private files (200 MB)** | Hidden encrypted vault for photos, PDFs, legal docs, backup QR codes |
 - 🖼 **Inline image previews** for supported formats
 - ↩️ **Bulk restore** — export all files back to `Downloads/` in one tap
 - 📤 **Individual export** — pick destination via Storage Access Framework
