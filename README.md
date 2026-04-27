@@ -20,7 +20,7 @@ A fully local, zero-knowledge encrypted vault for Android, unlocked by your Sola
 [![No Telemetry](https://img.shields.io/badge/Telemetry-None-555555)](#)
 [![Made on Solana](https://img.shields.io/badge/Made%20on-Solana-9945FF?logo=solana&logoColor=white)](https://solana.com)
 
-[**▶ Watch Demo**](https://www.youtube.com/shorts/Udxx0owO-zA) · [**📊 Pitch Deck**](https://drive.google.com/file/d/1UcM7HbW7gq96kbXk2STNiQm_njrm1E7y/view) · [**📦 Releases**](https://github.com/imFiz/Seeker-Vault/releases) · [**🔐 Privacy**](PRIVACY.md) · [**📜 EULA**](EULA.md) [**📊 Roadmap**](https://github.com/imFiz/Seeker-Vault/blob/main/docs/roadmap.md)
+[**▶ Watch Demo**](https://www.youtube.com/shorts/Udxx0owO-zA) · [**📊 Pitch Deck**](https://drive.google.com/file/d/1UcM7HbW7gq96kbXk2STNiQm_njrm1E7y/view) · [**📦 Releases**](https://github.com/imFiz/Seeker-Vault/releases) · [**🔐 Privacy**](PRIVACY.md) · [**📜 EULA**](EULA.md) [**🔄 Roadmap**](https://github.com/imFiz/Seeker-Vault/blob/main/docs/roadmap.md)
 
 </div>
 
