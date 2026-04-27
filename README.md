@@ -12,7 +12,7 @@ A fully local, zero-knowledge encrypted vault for Android, unlocked by your Sola
 [![Solana](https://img.shields.io/badge/Solana-Mainnet-14F195?logo=solana&logoColor=white)](https://solana.com)
 [![Solana Mobile](https://img.shields.io/badge/Solana%20Mobile-Seeker-9945FF?logo=solana&logoColor=white)](https://solanamobile.com)
 [![dApp Store](https://img.shields.io/badge/dApp%20Store-Submitted-9b5dff)](https://github.com/imFiz/Seeker-Vault/releases)
-[![Colosseum](https://img.shields.io/badge/Colosseum-Cypherpunk%202026-ff6b6b)](https://www.colosseum.com)
+[![Colosseum](https://img.shields.io/badge/Colosseum-2026-ff6b6b)](https://www.colosseum.com)
 [![Platform](https://img.shields.io/badge/platform-Android%2015-3DDC84?logo=android&logoColor=white)](#)
 [![Encryption](https://img.shields.io/badge/Encryption-AES--256--GCM-2ea44f)](#-security-architecture)
 [![PBKDF2](https://img.shields.io/badge/PBKDF2-600k%20iterations-2ea44f)](#-security-architecture)
