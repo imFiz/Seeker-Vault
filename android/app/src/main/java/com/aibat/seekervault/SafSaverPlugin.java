@@ -1,4 +1,4 @@
-package com.seekervault.app;
+package com.aibat.seekervault;
 
 import android.app.Activity;
 import android.content.Context;
