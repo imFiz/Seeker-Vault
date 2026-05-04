@@ -258,17 +258,23 @@ The only **official** builds are those signed with the Seeker Vault release keys
 
 ### Official release fingerprints
 
-**v1.0.1** (`com.aibat.seekervault`, versionCode 2) — current
+**v1.0.2** (`com.aibat.seekervault`, versionCode 3) — current
 
 | What | Value |
 |---|---|
-| APK SHA-256 | `4250f1311f2fd85af751a4d470862297a53ec657bb4f99ee35a20f35b8aca823` |
+| APK SHA-256 | `a14c01b4c085d30dfb434a9ed18c653ee7d4fcad5414ab55dcc7518ef46bf6ea` |
 | Signing cert SHA-256 | `19:F2:E3:62:52:77:C1:97:29:57:96:C3:59:FA:A8:31:6C:AF:33:33:D0:1E:23:54:04:30:07:DB:36:17:E6:92` |
 | Signing cert SHA-1 | `7A:AB:65:53:7B:7E:51:89:BC:61:6E:CC:68:D2:86:F3:16:4F:C1:D2` |
 | Signer DN | `CN=Daniyar Gabdullin, OU=Aibat, O=Aibat, L=Almaty, ST=Almaty, C=KZ` |
 
 <details>
 <summary>Older versions</summary>
+
+**v1.0.1** (`com.aibat.seekervault`, versionCode 2) — superseded by v1.0.2 (versionCode bump for dApp Store resubmission)
+
+| What | Value |
+|---|---|
+| APK SHA-256 | `4250f1311f2fd85af751a4d470862297a53ec657bb4f99ee35a20f35b8aca823` |
 
 **v1.0** (`com.seekervault.app`, versionCode 1) — superseded; package renamed for Solana dApp Store compliance
 
