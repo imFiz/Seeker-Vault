@@ -20,3 +20,7 @@ android/keystore.properties
 # OS
 Thumbs.db
 *.bak
+
+# Internal working documents (not for publication)
+docs/pitchdeck.md
+pitch/
