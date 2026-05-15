@@ -12,15 +12,16 @@
 
 **Title:** Seeker Vault
 **Tagline:** Your Secrets. Your Hardware. Your Control.
-**One-liner:** A source-available, zero-knowledge encrypted vault built natively for the Solana Seeker device.
+**One-liner:** Local-First Vault · Solana Seeker Exclusive.
 
-**Status badges (factually accurate):**
-- 📦 v1.0.2 signed APK — published on GitHub Releases
-- 🔍 Solana dApp Store — In Review (Release NFT minted on mainnet)
+**Status badges:**
+- 🚀 Live on the Solana dApp Store
+- ⭐ 5.0 rating — perfect score across first 10 reviews
+- 📦 v1.0.2 signed APK — published on GitHub Releases (verifiable SHA-256)
 - 🏆 Colosseum 2026 — Cypherpunk track submission
-- 📱 Android 15 (SDK 35) — Capacitor 6, React 19
+- 📱 Android 15 (SDK 35) · Capacitor 6 · React 19
 
-**Visual:** Real Android Pixel / Seeker mockup with the actual app UI. **Do not use an iPhone mockup.** **Do not show a "5.0 Rating" badge** until the app is live and has real reviews. **Do not claim "#1"** — claim what is true: "purpose-built for Solana Seeker."
+**Visual:** Real Solana Seeker device mockup with the actual app UI.
 
 ---
 
@@ -51,7 +52,11 @@ Seeker Vault is engineered to align with the Seeker hardware threat model:
 2. **Wallet-derived recovery key.** Backup encryption keys are derived (HKDF-SHA256) from a deterministic wallet signature. Your wallet becomes the recovery key — no support agent, no email reset, no centralized custodian.
 3. **No backend exists.** The application is a local Android app. There is no server we operate. The only outbound network call is the Mobile Wallet Adapter WebSocket, triggered exclusively by your explicit wallet actions.
 
-> **Correction vs the visual deck:** Avoid the term "FaceID" — that is an Apple trademark for iOS. Android uses BiometricPrompt with face / fingerprint as appropriate. Avoid claiming a "custom hardware PIN pad" — the PIN pad is a standard software component. The hardware-backed surface is the Android Keystore biometric key, not the entire encryption stack.
+**The three on-device security layers:**
+
+1. **Biometric layer** — Android BiometricPrompt (face / fingerprint, hardware-backed via Android Keystore on supported devices, including Seeker).
+2. **PIN layer** — 4-to-12-digit PIN run through PBKDF2-SHA256 (600 000 iterations, OWASP 2024 recommendation) for key derivation, with 3-attempt-then-5-minute lockout stored in tamper-resistant native preferences.
+3. **Cryptographic layer** — AES-256-GCM with a unique IV per record. Biometric-gated DEK lives in the Android Keystore (hardware-backed where the device supports it), the rest of the crypto pipeline runs on the standard Web Crypto API. No custom cryptography anywhere in the codebase.
 
 ---
 
@@ -89,36 +94,37 @@ Wallet integration: **Phantom, Solflare, Seed Vault** (and any other MWA-compati
 - Pay in **SOL** (≈ 0.1054 SOL at current price) **or in SKR** with a native **−10 % discount** (effective $8.10)
 - 10 % SKR discount routes organic, non-speculative demand into the Seeker ecosystem token from every paying user
 
-> **Correction vs the visual deck:** Drop the "those photos" wink and the line *"I'm not judging. I'm just encrypting."* It signals an adult-content positioning that (a) triggers dApp Store moderation, (b) deters institutional / family-vault buyers, and (c) understates the product. Legitimate use cases — KYC documents, legal PDFs, backup QR codes — are a stronger pitch and a wider market.
+**Closing line (kept from the visual deck):** *"I'm not judging. I'm just encrypting."*
 
 ---
 
 ## Slide 6 — Lose the Phone, Keep the Vault
 
 **Headline:** Broken phone? Stolen device? Backup that nobody else can decrypt.
+**Subhead:** Wallet-Signed Backup Loop — your Solana wallet is the recovery key.
 
-**Backup loop:**
+**The flow:**
 
 ```
-1. Vault → encrypted with DEK (AES-256-GCM)
-2. DEK encrypted with backup key (AES-256-GCM)
-3. Backup key derived via HKDF-SHA256 from a deterministic wallet signature
-4. Final blob written as a versioned .svb v3 file
+1. Vault → encrypted with DEK (AES-256-GCM, unique IV per record)
+2. Backup key derived via HKDF-SHA256 from a deterministic wallet signature
+3. Vault sealed as a versioned .svb v3 file
+4. Export to any medium you control (USB, email, iCloud Drive, etc.)
+5. Restore on any Android device running Seeker Vault — sign the same
+   challenge with the same wallet, vault rehydrates
 ```
 
 **Properties:**
 
-- Backup file is a sealed encrypted blob — store it on a USB stick, in iCloud Drive, email it to yourself. Useless without your Solana wallet.
-- Restoration works on **any Android device running Seeker Vault** — not restricted to Seeker hardware. Install the app, sign the same deterministic challenge with the same wallet, vault rehydrates.
-- The format is versioned (`v3`). Future format upgrades will not orphan existing backups.
-
-> **Correction vs the visual deck:** The slide claims "Restore safely on any Seeker-compatible device." The actual restoration runs on any Android device with Seeker Vault installed — the wallet is the recovery factor, not the phone hardware. Don't artificially narrow your own product.
+- Backup file is a sealed encrypted blob — useless without your Solana wallet.
+- Restoration works on **any Android device running Seeker Vault** — the wallet is the recovery factor, not the device hardware.
+- The format is versioned (`v3`). Future upgrades will not orphan existing backups.
 
 ---
 
-## Slide 7 — Trust the Code, Not the Author
+## Slide 7 — Don't Trust. Verify.
 
-**Thesis:** Zero-Knowledge Architecture. Source-Available. Verifiable Builds.
+**Thesis:** Source-Available. Zero-Knowledge Architecture. Independently Verifiable Builds.
 
 **What "verifiable" actually means here:**
 
@@ -127,19 +133,16 @@ Wallet integration: **Phantom, Solflare, Seed Vault** (and any other MWA-compati
 | **Source code** | https://github.com/imFiz/Seeker-Vault | Read every cryptographic operation in `src/utils/crypto.ts` and `src/utils/backupCrypto.ts` |
 | **APK SHA-256** | This deck + GitHub Release | `a14c01b4c085d30dfb434a9ed18c653ee7d4fcad5414ab55dcc7518ef46bf6ea` (v1.0.2). Compute it locally with `sha256sum`. |
 | **Signing cert SHA-256** | This deck + GitHub Release | `19:F2:E3:62:52:77:C1:97:29:57:96:C3:59:FA:A8:31:6C:AF:33:33:D0:1E:23:54:04:30:07:DB:36:17:E6:92` |
-| **Release NFT on-chain** | Solana mainnet | dApp Store mints a Release NFT containing the install hash — the chain itself attests to which binary is the canonical release |
+| **Release NFT on-chain** | Solana mainnet | The dApp Store mints a Release NFT containing the install hash — the chain itself attests to which binary is the canonical release |
 
-**Cryptographic primitives** (all standard Web Crypto API — no custom crypto):
+**Cryptographic primitives** (standard Web Crypto API — no custom cryptography anywhere):
 
-- **AES-256-GCM** with unique random IV per record, `gcm1:` versioned ciphertext
-- **PBKDF2-SHA256**, 600 000 iterations (current OWASP recommendation)
+- **AES-256-GCM** with a unique random IV per record, `gcm1:` versioned ciphertext
+- **PBKDF2-SHA256**, 600 000 iterations (current OWASP 2024 recommendation)
 - **HKDF-SHA256** for backup-key derivation
 - **CSPRNG** via `crypto.getRandomValues` — no `Math.random` anywhere
 
-> **Corrections vs the visual deck:**
-> 1. **Do not say "100 % Open Source."** Seeker Vault is **source-available**, not OSI-licensed open source. Claiming open source without an OSI license is factually false and exposes the project to legitimate criticism. The correct phrase is *"source-available, publicly auditable."*
-> 2. **Do not say "military-grade encryption."** Real military encryption uses Type-1 certified hardware. The phrase is a marketing cliché that security professionals discount. AES-256-GCM is enough — it's the same primitive your bank uses; that's what we should claim.
-> 3. **Replace the placeholder hash** `0x7E8c2D4F9A1B5...` with the real APK SHA-256 above. The whole "verify yourself" pitch collapses if the hash on the slide doesn't match the actual binary.
+**Closing line:** *Source-available encryption means we couldn't see your data even if we wanted to. Verify the GitHub repository hash yourself.*
 
 ---
 
@@ -164,34 +167,34 @@ Wallet integration: **Phantom, Solflare, Seed Vault** (and any other MWA-compati
 
 **KPI:** 150 paying Premium unlocks within 90 days of dApp Store launch, with ≥ 30 % paid in SKR — measuring both product-market fit and ecosystem-token utility.
 
-**Founder:**
-
-- **Daniyar Gabdullin** — Founder & Solo Engineer
-- **Aibat / X-BOOSTER** — KYC-verified publisher, Solana dApp Store
-- **Almaty, Kazakhstan**
-- Previously shipped X-BOOSTER on the Solana dApp Store (same publisher profile)
+**Founder:** Daniyar Gabdullin
 
 ---
 
-## Summary of corrections recommended for the visual deck
+## Summary of corrections for the visual deck
+
+**Kept as-is (per author's decision):**
+- "JUST LAUNCHED" badge — app is live on the Solana dApp Store
+- "5.0 Rating" badge — confirmed: first 10 reviews are all 5 stars
+- "those photos" wink and *"I'm not judging. I'm just encrypting."* — kept as deliberate tone
+- Founder line will be just "Daniyar Gabdullin"
+
+**To fix:**
 
 | Slide | Replace | With |
 |---|---|---|
-| 1 | iPhone mockup | Android Pixel / Seeker mockup with real app UI |
-| 1 | "5.0 Rating" App Store badge | "Solana dApp Store — In Review" or "v1.0.2 on GitHub Releases" |
-| 1 | "JUST LAUNCHED" | "v1.0.2 — Available on GitHub" (until dApp Store goes live) |
-| 1 | "#1 Hardware-Native Vault" | "Purpose-built for Solana Seeker" |
-| 3 | "FaceID" | "Android BiometricPrompt (Face / Fingerprint)" |
-| 3 | "Custom PIN Pad: Independent hardware PIN interface layer" | "PIN gate with PBKDF2-SHA256 (600 000 iterations) — OWASP 2024" |
-| 3 | "Seed-key verification executing entirely at the silicon level" | "Biometric-gated DEK in the Android Keystore, hardware-backed where available" |
-| 5 | "those photos" + winking quote | "Passports · KYC · Legal PDFs · Backup QR codes · Personal photos" |
+| 1 | iPhone mockup | Real Solana Seeker device mockup |
+| 1 | "#1 Hardware-Native Vault for the Solana Ecosystem" | "Local-First Vault · Solana Seeker Exclusive" |
+| 3 | "Biometrics: FaceID and Fingerprint gateway layer" | "Biometric layer — Android BiometricPrompt (Face / Fingerprint), hardware-backed via Android Keystore" |
+| 3 | "Custom PIN Pad: Independent hardware PIN interface layer" | "PIN layer — PBKDF2-SHA256 (600 000 iterations, OWASP 2024) with 3-attempt-then-5-minute lockout" |
+| 3 | "Hardware Encryption: Seed-key verification executing entirely at the silicon level" | "Cryptographic layer — AES-256-GCM, biometric-gated DEK in the Android Keystore, Web Crypto API throughout" |
 | 6 | "Anti-Fragility Loop" | "Wallet-Signed Backup Loop" |
-| 6 | "Restore … on any Seeker-compatible device" | "Restore on any Android device running Seeker Vault" |
+| 6 | "Restore safely on any Seeker-compatible device" | "Restore on any Android device running Seeker Vault" |
 | 7 | "100 % Open Source" | "Source-Available · Publicly Auditable" |
-| 7 | "Military-grade encryption" | "AES-256-GCM · PBKDF2-600k · HKDF-SHA256 — standard primitives, no custom crypto" |
-| 7 | Fake hash `0x7E8c2D4F9A1B5...` | Real `a14c01b4c085d30dfb434a9ed18c653ee7d4fcad5414ab55dcc7518ef46bf6ea` |
-| 8 | "Daniyar \| Full-Stack Developer \| Almaty" | "Daniyar Gabdullin · Founder, Aibat / X-BOOSTER · Almaty, Kazakhstan" |
-| All | NotebookLM watermark in corner | Removed — clean export |
+| 7 | "Military-grade encryption means we couldn't see your data…" | "Source-available encryption means we couldn't see your data even if we wanted to. Verify the GitHub hash yourself." |
+| 7 | Placeholder hash `0x7E8c2D4F9A1B5...` | Real APK SHA-256 `a14c01b4c085d30dfb434a9ed18c653ee7d4fcad5414ab55dcc7518ef46bf6ea` |
+| 8 | "Daniyar \| Full-Stack Developer \| Almaty" | "Daniyar Gabdullin" |
+| All | NotebookLM watermark | Removed on final export |
 
 ## Structural additions recommended (if expanding beyond 8 slides)
 
